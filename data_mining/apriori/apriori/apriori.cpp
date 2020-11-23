@@ -41,7 +41,7 @@ vector < vector<string>> loadDataset()
     return dataSet;
 }
 
-map< vector<string> , unsigned int > create_C1(vector < vector<string> >& dataSet) {
+map< vector<string>, unsigned int > create_C1(vector < vector<string> >& dataSet) {
     map< vector<string>, unsigned int >C1;
     map< vector<string>, unsigned int >::iterator it_C1;
     //迭代器
@@ -60,7 +60,7 @@ map< vector<string> , unsigned int > create_C1(vector < vector<string> >& dataSe
         }
     }
 
-   
+
     return C1;
 }
 
@@ -100,26 +100,55 @@ map< vector<string>, vector<string> > create_map_L1(map< vector<string>, unsigne
     return map_L1;
 }
 
-void create_Ck(map< vector<string>, vector<string> >map_L, int k) {
+map< vector<string>, vector<string> > create_C2(map< vector<string>, vector<string> >map_L) {
+    map< vector<string>, vector<string> > map_Ck;
     map< vector<string>, vector<string> >::iterator it_map_L;
-    vector<string>::iterator it_value,it_value2;
-    vector<string> combine_item;
+    vector<string>::iterator it_value, it_value2;
+    vector<string> map_Ck_key;
+    vector<string> map_Ck_value;
+
 
     for (it_map_L = map_L.begin(); it_map_L != map_L.end(); it_map_L++) {
-        for (it_value = (it_map_L->second).begin(); it_value != (it_map_L->second).end() - 1; it_value++)
+        for (it_value = (it_map_L->second).begin(); it_value != (it_map_L->second).end() - 1; it_value++) {
+            map_Ck_key = {}; map_Ck_value = {};
+            map_Ck_key.push_back(*it_value);
             for (it_value2 = it_value + 1; it_value2 != (it_map_L->second).end(); it_value2++) {
-          //      cout << *it_value << " " << *it_value2 << endl;
-                combine_item.push_back(*it_value);
-                combine_item.push_back(*it_value2);
-            }       
+                map_Ck_value.push_back(*it_value2);
+            }
+            map_Ck.insert(map<vector<string>, vector<string>>::value_type(map_Ck_key, map_Ck_value));
+        }
     }
+
+    return map_Ck;
 }
 
+void get_sup_count(map< vector<string>, vector<string> > map_Ck, vector < vector<string> >& dataSet, int k) {
+    //根据map类型获得k项集
+    //放入 无序map中
+    //获得事务得到的k项集
+    //遍历得到计数
+
+
+
+
+}
+//void create_Ck(map< vector<string>, vector<string> >map_L) {
+//
+//}
+
+
 void generate_Lk(vector < vector<string> >& dataSet, unsigned int min_sup_count) {
+    //记录项集和统计计数
     map< vector<string>, unsigned int >C1;
+    map< vector<string>, unsigned int >C2;
     map< vector<string>, unsigned int >L1;
+    map< vector<string>, unsigned int >L2;
+
     map< vector<string>, vector<string> >map_L1;
+    map< vector<string>, vector<string> >map_C2;
+    map< vector<string>, vector<string> >map_Ck;
     vector<  map< vector<string>, unsigned int > > L;
+
     //基于前缀存储的Ck  map(k-1 ,k)
     map<vector<string>, vector<string>>  prefix_Ck;
 
@@ -132,8 +161,12 @@ void generate_Lk(vector < vector<string> >& dataSet, unsigned int min_sup_count)
 
     L.push_back(L1);
     int k = 1;
+    map_C2 = create_C2(map_L1);
+    get_sup_count(map_C2, dataSet,k = 2);
 
-     create_Ck(map_L1, k);
+    //create_Ck(map_C2);
+
+
     /*while (L[k - 1].size() > 0) {
         prefix_Ck = create_Ck(map_L1,k + 1);
     }*/
@@ -146,7 +179,7 @@ void generate_Lk(vector < vector<string> >& dataSet, unsigned int min_sup_count)
     // L1是map类型 key是 0 value是项集，生成C2 自连接，剪枝
     // 计算支持度计数：1）由事务生成 k 项集-Tk  2）将Lk 存储到 unorderedMap中，默认为0；
     //                 3) 遍历 Tk去map中找，得到统计数
-   
+
 }
 
 int main()

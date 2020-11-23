@@ -141,3 +141,5 @@ if __name__ == "__main__":
     Lk, support_data = generate_L(data_set, min_sup_count=2)
     associate_rules_list = generate_associate_rules(Lk, support_data, min_conf=0.7)
     visualization(associate_rules_list)
+
+
