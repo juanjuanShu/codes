@@ -139,5 +139,5 @@ def visualization(associate_rules_list):
 if __name__ == "__main__":
     data_set = load_data_set()
     Lk, support_data = generate_L(data_set, min_sup_count=2)
-    associate_rules_list = generate_associate_rules(Lk, support_data, min_conf=0.7)
+    associate_rules_list = generate_associate_rules(Lk, support_data, min_conf=0.5)
     visualization(associate_rules_list)

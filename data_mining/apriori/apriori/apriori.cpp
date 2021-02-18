@@ -105,14 +105,16 @@ void create_Ck(map< vector<string>, vector<string> >map_L, int k) {
     vector<string>::iterator it_value,it_value2;
     vector<string> combine_item;
 
-    for (it_map_L = map_L.begin(); it_map_L != map_L.end(); it_map_L++) {
-        for (it_value = (it_map_L->second).begin(); it_value != (it_map_L->second).end() - 1; it_value++)
-            for (it_value2 = it_value + 1; it_value2 != (it_map_L->second).end(); it_value2++) {
-          //      cout << *it_value << " " << *it_value2 << endl;
-                combine_item.push_back(*it_value);
-                combine_item.push_back(*it_value2);
-            }       
-    }
+    
+
+    //for (it_map_L = map_L.begin(); it_map_L != map_L.end(); it_map_L++) {
+    //    for (it_value = (it_map_L->second).begin(); it_value != (it_map_L->second).end() - 1; it_value++)
+    //        for (it_value2 = it_value + 1; it_value2 != (it_map_L->second).end(); it_value2++) {
+    //            //k = 2 不进行预剪枝
+    //            combine_item.push_back(*it_value);
+    //            combine_item.push_back(*it_value2);
+    //        }       
+    //}
 }
 
 void generate_Lk(vector < vector<string> >& dataSet, unsigned int min_sup_count) {
