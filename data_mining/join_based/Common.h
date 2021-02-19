@@ -9,6 +9,8 @@ class Common
 {
 public:
 	bool isRReachable(LocationType& loc1, LocationType& loc2);
+	bool multi_rel(CellPositionType &cell1, CellPositionType &cell2);
+
 	JoinBase* joinBase;
 };
 

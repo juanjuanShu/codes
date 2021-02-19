@@ -16,3 +16,9 @@ using ColocationType = vector<FeatureType>;
 //候选模式,只存储特征    vector<vector<FeatureType>>  
 using ColocationSetType = vector<ColocationType>;
 using ColocationPackage = map<ColocationType, TableInstanceType>; 
+
+//MultiResolution part
+using CellPositionType = pair<int,int>;
+using MultiResolution_RowInstanceType = vector<CellPositionType>;
+using MultiResolution_TableInstanceType = vector<MultiResolution_RowInstanceType>;
+using MultiResolution_ColocationPackage = map<ColocationType, MultiResolution_TableInstanceType>;

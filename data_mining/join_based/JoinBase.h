@@ -2,6 +2,7 @@
 #include "stdafx.h"
 #include "Types.h"
 #include "Common.h"
+#include "MultiResolution.h"
 class Common;
 
 class JoinBase {
@@ -15,7 +16,7 @@ public:
 	);
 
 	void execute();
-	Common* common;
+	/*Common* common;*/
 
 private:
 	double _min_prev;
@@ -25,6 +26,7 @@ private:
 	map<FeatureType, map<InstanceIdType, LocationType>> _instances;
 	map<FeatureType, unsigned int> _colocationNum1;
 	map<unsigned int, ColocationPackage> _prevalentColocation;
+	vector<InstanceType> _true_instances;
 
 	void _generateCandidateColocations(int k);
 

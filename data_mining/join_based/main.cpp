@@ -23,8 +23,6 @@ int main() {
     instances.push_back({ 4, 'B', {11,2} });
     instances.push_back({ 5, 'B', {31,11} });
 
-    
-
     instances.push_back({ 1, 'A', {0, 2} });
     instances.push_back({ 2, 'A', {11, 3} });
     instances.push_back({ 3, 'A', {12,3} });

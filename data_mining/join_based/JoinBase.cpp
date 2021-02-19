@@ -1,9 +1,12 @@
 #include "JoinBase.h"
+#include "MultiResolution.h"
+#include "Common.h"
 
 JoinBase::JoinBase(vector<InstanceType>& instances,double min_prev, double min_conf, bool fmul, double cellSize)
 	:_min_prev(min_prev),
 	_min_conf(min_conf),
 	_fmul(fmul),
+	_true_instances(instances),
 	_cellSize(cellSize){
 	for (auto it = instances.begin(); it != instances.end(); it++) {
 		auto instanceId = get<InstanceIdType>(*it);
@@ -189,16 +192,22 @@ void  JoinBase::_selectPrevalentColocations(ColocationPackage & candidatePackage
 	}
 }
 
+void _generateRules() {
+	//c1 => c2 c1&&C2 / c1
+}
+
 void JoinBase::execute() {
 	int k = 1;
 
 	while (_prevalentColocation.count(k) && !_prevalentColocation[k].empty()) {
 		vector<ColocationType> candidates = _generateCandidateColocations_k(k);
-
+		if (_fmul) {
+			MultiResolution multiResolution(_true_instances,_min_prev, _cellSize);
+			multiResolution.multiResolutionPruning(candidates, k);
+		}
 		ColocationPackage candidatePackages = _generateTableInstances(candidates, k);
-
 		_selectPrevalentColocations(candidatePackages, k);
-		
 		k++;
 	}
+	_generateRules();
 }
