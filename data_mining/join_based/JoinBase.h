@@ -5,6 +5,12 @@
 #include "MultiResolution.h"
 class Common;
 
+struct Rule {
+	ColocationType antecedent;
+	ColocationType consequent;
+	double conf;
+};
+
 class JoinBase {
 public:
 	JoinBase(
@@ -24,7 +30,8 @@ private:
 	bool _fmul;
 	double _cellSize;
 	map<FeatureType, map<InstanceIdType, LocationType>> _instances;
-	map<FeatureType, unsigned int> _colocationNum1;
+	map<FeatureType, unsigned int> numOfInstances;
+	map<unsigned int,map<ColocationType, unsigned int>> _numOfColocations;
 	map<unsigned int, ColocationPackage> _prevalentColocation;
 	vector<InstanceType> _true_instances;
 
@@ -40,5 +47,7 @@ private:
 
 	bool  _isSubsetPrevalent(ColocationType& candidates, int k);
 
-	void _generateRules();
+	vector<Rule> _generateRules();
+
+	void _generateRuleByColocation(const ColocationType& colocations,ColocationSetType& consequentSet,vector<Rule>& ans,int consequent_num,int i,int itemLength);
 };  

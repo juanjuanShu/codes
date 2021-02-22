@@ -28,7 +28,7 @@ int main() {
     instances.push_back({ 3, 'A', {12,3} });
     instances.push_back({ 4, 'A', {10, 4} });
 
-    JoinBase joinBase(instances,0.5, 0, true, 1);
+    JoinBase joinBase(instances,0.2, 0, true, 1);
     joinBase.execute();
 
     return 0;

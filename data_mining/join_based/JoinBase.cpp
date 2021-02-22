@@ -1,6 +1,7 @@
 #include "JoinBase.h"
 #include "MultiResolution.h"
 #include "Common.h"
+#include <set>
 
 JoinBase::JoinBase(vector<InstanceType>& instances,double min_prev, double min_conf, bool fmul, double cellSize)
 	:_min_prev(min_prev),
@@ -18,7 +19,7 @@ JoinBase::JoinBase(vector<InstanceType>& instances,double min_prev, double min_c
 		_prevalentColocation[1][{feature}].push_back({ instanceId });
 
 		//_colocationNum (特征，数量)
-		auto ret = _colocationNum1.insert({ feature,1 });
+		auto ret = numOfInstances.insert({ feature,1 });
 		if (!ret.second) { ++ret.first->second; }
 	}
 }
@@ -28,7 +29,7 @@ vector<ColocationType> JoinBase::_generateCandidateColocations_2() {
 	vector<ColocationType> candidateColocations;
 
 	//获取到实例类型，排序
-	for (auto it_data = _colocationNum1.begin(); it_data != _colocationNum1.end(); it_data++) {
+	for (auto it_data = numOfInstances.begin(); it_data != numOfInstances.end(); it_data++) {
 		colocations.push_back((*it_data).first);
 	}
 	sort(colocations.begin(), colocations.end());
@@ -159,7 +160,7 @@ void  JoinBase::_selectPrevalentColocations(ColocationPackage & candidatePackage
 		map<FeatureType, vector<bool>>::iterator it_bit;
 		for (unsigned int i = 0; i < colocations.size(); i++) {
 			FeatureType feature = colocations[i];
-			bitMap[feature] = vector<bool>(_colocationNum1[feature],false);
+			bitMap[feature] = vector<bool>(numOfInstances[feature],false);
 		}
 		//A B:1 1,2 4 
 		for (auto rowInstance : tableInstances) {
@@ -190,10 +191,135 @@ void  JoinBase::_selectPrevalentColocations(ColocationPackage & candidatePackage
 			_prevalentColocation[k][colocations] = tableInstances;
 		}
 	}
+
+	//记录频繁模式和出现的次数
+	auto prevalentPackages = _prevalentColocation[k];
+	for (auto prevalentPackage : prevalentPackages) {
+		ColocationType colocations = prevalentPackage.first;
+		TableInstanceType tableInstances = prevalentPackage.second;
+
+		set<RowInstanceType> rowInstanceSet;
+		for (auto rowInstance:tableInstances) {
+			if (rowInstanceSet.find(rowInstance) == rowInstanceSet.end()) {
+				rowInstanceSet.insert(rowInstance);
+				_numOfColocations[k][colocations] ++;
+			}
+		}
+	}
 }
 
-void _generateRules() {
-	//c1 => c2 c1&&C2 / c1
+ColocationSetType apriori_gen(ColocationSetType& consequentSet) {
+	vector<FeatureType> combItem;
+	set<ColocationType> tmpSet;
+	vector<ColocationType> consequentNewSet;
+
+	for (auto it_cs = consequentSet.begin(); it_cs != consequentSet.end() - 1; it_cs++) {
+		for (auto it_cs1 = (it_cs)+1; it_cs1 != consequentSet.end(); it_cs1++) {
+			//bc bd=>bcd bd cd=>bcd
+			combItem = {};
+			set_union((*it_cs).begin(), (*it_cs).end(), (*it_cs1).begin(), (*it_cs1).end(), back_inserter(combItem));
+			if (combItem.size() == (*it_cs).size() + 1) {
+				tmpSet.insert(combItem);
+			}
+		}
+	}
+	//set转vector
+	consequentNewSet.assign(tmpSet.begin(), tmpSet.end());
+
+	return consequentNewSet;
+}
+
+void JoinBase::_generateRuleByColocation(const ColocationType& colocation,
+	ColocationSetType& consequentSet,
+	vector<Rule>& ans,
+	int consequent_num,
+	int i,
+	int itemLength) {
+	double conf;
+	ColocationSetType consequentNewSet = {};
+	ColocationSetType consequentTempSet = {};
+
+	//前件至少有1个，前件加后件如果大于当前事务，则无法生成
+	if (consequent_num + 1 > itemLength) return;
+
+	for (auto consequent : consequentSet) {
+		ColocationType antecedent = {};
+		//itemSet - consequent = antecedent
+		set_difference(colocation.begin(), colocation.end(), consequent.begin(), consequent.end(), back_inserter(antecedent));
+		unsigned int antecedent_num = antecedent.size();
+		conf = (_numOfColocations[i][colocation]) * 1.0 / (_numOfColocations[antecedent_num][antecedent]);
+		conf = round(conf * 100) / 100.0;
+		if (conf >= _min_conf) {
+			ans.push_back(move(Rule{ antecedent, consequent, conf }));
+			consequentTempSet.push_back(consequent);
+		}
+		//else {
+		//    //如果bcd=>a置信度不满足，则剪枝；即从后件项集中删除该元素
+		//    it = consequentSet.erase(it);
+		//}
+	}
+
+	if (!empty(consequentTempSet)) {
+		consequentNewSet = apriori_gen(consequentTempSet);
+		_generateRuleByColocation(colocation, consequentNewSet, ans, consequent_num + 1, i, itemLength);
+	}
+}
+
+vector<Rule> JoinBase::_generateRules() {
+	vector<ColocationType> consequentSet;
+	vector<Rule> ans;
+
+	//TODO:L[1]存储的是二项集
+
+	for (int k = 1; k < _numOfColocations.size(); k++) {
+		for (auto& numOfColocation : _numOfColocations[k]) {
+			consequentSet = {};
+			auto colocations = numOfColocation.first;
+			//规则的1-项后件
+			for (auto& colocation : colocations) {
+				consequentSet.push_back({ colocation });
+			}
+			_generateRuleByColocation(colocations, consequentSet, ans, 1, k, k);
+		}
+	}
+
+	return ans;
+}
+
+void visualization(vector<Rule> rules) {
+	ColocationType antecedent;
+	ColocationType consequent;
+	ofstream ofs("output.txt");
+
+
+	for (auto& rule : rules)
+	{
+		antecedent = rule.antecedent;
+		for (auto& item : antecedent) {
+			ofs << item;
+			int size = antecedent.size() - 1;
+			if (item == antecedent[size])
+				ofs << " ";
+			else
+				ofs << "^";
+		}
+
+		ofs << " => ";
+
+		consequent = rule.consequent;
+		for (auto& item : consequent) {
+			ofs << item;
+			int size = consequent.size() - 1;
+			if (item == consequent[size])
+				ofs << " ";
+			else
+				ofs << "^";
+		}
+
+		ofs << "   confidence  : " << rule.conf;
+
+		ofs << endl;
+	}
 }
 
 void JoinBase::execute() {
@@ -202,12 +328,14 @@ void JoinBase::execute() {
 	while (_prevalentColocation.count(k) && !_prevalentColocation[k].empty()) {
 		vector<ColocationType> candidates = _generateCandidateColocations_k(k);
 		if (_fmul) {
-			MultiResolution multiResolution(_true_instances,_min_prev, _cellSize);
+			MultiResolution multiResolution(_true_instances,_min_prev, _cellSize, numOfInstances);
 			multiResolution.multiResolutionPruning(candidates, k);
 		}
 		ColocationPackage candidatePackages = _generateTableInstances(candidates, k);
 		_selectPrevalentColocations(candidatePackages, k);
 		k++;
 	}
-	_generateRules();
+	vector<Rule> rules = _generateRules();
+
+	visualization(rules);
 }
