@@ -2,6 +2,7 @@
 #include "stdafx.h"
 #include "Types.h"
 #include "JoinBase.h"
+#include <cmath>
 
 class JoinBase;
 

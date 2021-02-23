@@ -1,4 +1,4 @@
-#include "JoinBase.h"
+ï»¿#include "JoinBase.h"
 #include "MultiResolution.h"
 #include "Common.h"
 #include <set>
@@ -18,9 +18,11 @@ JoinBase::JoinBase(vector<InstanceType>& instances,double min_prev, double min_c
 
 		_prevalentColocation[1][{feature}].push_back({ instanceId });
 
-		//_colocationNum (ÌØÕ÷£¬ÊıÁ¿)
+		//_colocationNum (ç‰¹å¾ï¼Œæ•°é‡)
 		auto ret = numOfInstances.insert({ feature,1 });
 		if (!ret.second) { ++ret.first->second; }
+
+		_numOfColocations[1][{feature}] ++;
 	}
 }
 
@@ -28,13 +30,13 @@ vector<ColocationType> JoinBase::_generateCandidateColocations_2() {
 	vector<FeatureType> colocations;
 	vector<ColocationType> candidateColocations;
 
-	//»ñÈ¡µ½ÊµÀıÀàĞÍ£¬ÅÅĞò
+	//è·å–åˆ°å®ä¾‹ç±»å‹ï¼Œæ’åº
 	for (auto it_data = numOfInstances.begin(); it_data != numOfInstances.end(); it_data++) {
 		colocations.push_back((*it_data).first);
 	}
 	sort(colocations.begin(), colocations.end());
-
-	for (unsigned int i = 0; i < colocations.size(); i++) {
+	//A B C
+	for (unsigned int i = 0; i < colocations.size() - 1; i++) {
 		for (unsigned int j = i + 1; j < colocations.size(); j++) {
 			candidateColocations.push_back({ colocations [i],colocations [j]});
 		}
@@ -58,10 +60,10 @@ bool  JoinBase::_isSubsetPrevalent(ColocationType& candidates, int k) {
 }
 
 vector<ColocationType> JoinBase::_generateCandidateColocations_k(int k){
-	if (k == 1)  return _generateCandidateColocations_2();
+	if (k == 2)  return _generateCandidateColocations_2();
 
 	vector<ColocationType> candidateColocations;
-	ColocationPackage& colocationPackage  = _prevalentColocation[k];
+	ColocationPackage& colocationPackage  = _prevalentColocation[k - 1];
 	ColocationSetType C;
 	vector<FeatureType> colocationSet;
 	map < ColocationType, ColocationType> trie_colocationSet = {};
@@ -72,7 +74,7 @@ vector<ColocationType> JoinBase::_generateCandidateColocations_k(int k){
 	}
 	sort(C.begin(), C.end());
 	
-	//´æ´¢
+	//å­˜å‚¨
 	for (unsigned int i = 0; i < C.size(); ++i) {
 		colocationSet = C[i];
 		FeatureType lastElement = colocationSet.back();
@@ -85,10 +87,10 @@ vector<ColocationType> JoinBase::_generateCandidateColocations_k(int k){
 		}
 	}
 
-	//Á¬½Ó
+	//è¿æ¥
 	for (auto& item : trie_colocationSet) {
 		ColocationType candidate = item.first;
-		//Èç¹ûºóÃæµÄkÖ»ÓĞÒ»¸ö£¬ÔòÎŞ·¨Á¬½Ó
+		//å¦‚æœåé¢çš„kåªæœ‰ä¸€ä¸ªï¼Œåˆ™æ— æ³•è¿æ¥
 		if (item.second.size() >= 2) {
 			for (auto it_value = (item.second).begin(); it_value != (item.second).end() - 1; it_value++) {
 				for (auto it_value1 = it_value + 1; it_value1 != (item.second).end(); it_value1++) {
@@ -110,13 +112,13 @@ ColocationPackage  JoinBase::_generateTableInstances(vector<ColocationType> &can
 
 	for (auto candidate : candidates) {
 		//A B
-		//A B CÒ»¶¨ÊÇÓÉ A B(Ç° k - 1Ïî)ºÍ A C£¨k -2 ¼ÓÉÏ×îºóÒ»¸ö£©×é³ÉµÃµ½µÄ
+		//A B Cä¸€å®šæ˜¯ç”± A B(å‰ k - 1é¡¹)å’Œ A Cï¼ˆk -2 åŠ ä¸Šæœ€åä¸€ä¸ªï¼‰ç»„æˆå¾—åˆ°çš„
 		ColocationType candidate1(candidate.begin(),candidate.end() -1);
 		ColocationType candidate2(candidate.begin(),candidate.end() -2); 
 		candidate2.push_back(candidate.back());
 
-		TableInstanceType  tableInstance1= _prevalentColocation[k][candidate1];
-		TableInstanceType  tableInstance2= _prevalentColocation[k][candidate2];
+		TableInstanceType  tableInstance1= _prevalentColocation[k - 1][candidate1];
+		TableInstanceType  tableInstance2= _prevalentColocation[k - 1][candidate2];
 
 		for (auto it1 = tableInstance1.begin(); it1 != tableInstance1.end(); it1++) {
 			RowInstanceType& rowInstance1 = *it1;
@@ -124,7 +126,7 @@ ColocationPackage  JoinBase::_generateTableInstances(vector<ColocationType> &can
 				RowInstanceType& rowInstance2 = *it2;
 
 				bool canMerge = true;
-				for (unsigned int idx = 0; idx < k - 1; idx++) {
+				for (unsigned int idx = 0; idx < k - 2; idx++) {
 					if (rowInstance1[idx] != rowInstance2[idx]) {
 						canMerge = false;
 						break;
@@ -136,9 +138,9 @@ ColocationPackage  JoinBase::_generateTableInstances(vector<ColocationType> &can
 					LocationType location1 = _instances[candidate1.back()][rowInstance1.back()];
 					LocationType location2 = _instances[candidate2.back()][rowInstance2.back()];
 					if (a->isRReachable(location1, location2)) {
-						rowInstance1.push_back(rowInstance2.back());
-
-						candidatePackage[candidate].push_back(move(rowInstance1));
+						RowInstanceType rowNewInstance(rowInstance1);
+						rowNewInstance.push_back(rowInstance2.back());
+						candidatePackage[candidate].push_back(move(rowNewInstance));
 					}
 				}
 			}
@@ -150,22 +152,22 @@ ColocationPackage  JoinBase::_generateTableInstances(vector<ColocationType> &can
 
 void  JoinBase::_selectPrevalentColocations(ColocationPackage & candidatePackages,int k) {
 	if (empty(candidatePackages))  return;
-
 	for (auto candidatePackage : candidatePackages) {
 		ColocationType colocations = candidatePackage.first;
 		TableInstanceType tableInstances = candidatePackage.second;
 
-		//³õÊ¼»¯Î»Í¼
+		//åˆå§‹åŒ–ä½å›¾
 		map<FeatureType, vector<bool>> bitMap;
-		map<FeatureType, vector<bool>>::iterator it_bit;
 		for (unsigned int i = 0; i < colocations.size(); i++) {
 			FeatureType feature = colocations[i];
+			//numOfInstances[feature]æ˜¯featureçš„å®ä¾‹æ•°
 			bitMap[feature] = vector<bool>(numOfInstances[feature],false);
 		}
 		//A B:1 1,2 4 
 		for (auto rowInstance : tableInstances) {
 			for (unsigned int i = 0; i < colocations.size(); i++) {
 				FeatureType feature = colocations[i];
+				//rowInstance[i]æ˜¯1,2...ï¼Œä»1å¼€å§‹ï¼Œä½†æ˜¯ä½å›¾ä¸‹æ ‡ä»0å¼€å§‹
 				bitMap[feature][rowInstance[i] - 1] = true;
 			}
 		}
@@ -186,13 +188,13 @@ void  JoinBase::_selectPrevalentColocations(ColocationPackage & candidatePackage
 			
 		}
 		
-		//Èç¹ûisPrevalentÎªtrue£¬²Å»á±£Áô
+		//å¦‚æœisPrevalentä¸ºtrueï¼Œæ‰ä¼šä¿ç•™
 		if (isPrevalent) {
 			_prevalentColocation[k][colocations] = tableInstances;
 		}
 	}
 
-	//¼ÇÂ¼Æµ·±Ä£Ê½ºÍ³öÏÖµÄ´ÎÊı
+	//è®°å½•é¢‘ç¹æ¨¡å¼å’Œå‡ºç°çš„æ¬¡æ•°
 	auto prevalentPackages = _prevalentColocation[k];
 	for (auto prevalentPackage : prevalentPackages) {
 		ColocationType colocations = prevalentPackage.first;
@@ -223,7 +225,7 @@ ColocationSetType apriori_gen(ColocationSetType& consequentSet) {
 			}
 		}
 	}
-	//set×ªvector
+	//setè½¬vector
 	consequentNewSet.assign(tmpSet.begin(), tmpSet.end());
 
 	return consequentNewSet;
@@ -239,7 +241,7 @@ void JoinBase::_generateRuleByColocation(const ColocationType& colocation,
 	ColocationSetType consequentNewSet = {};
 	ColocationSetType consequentTempSet = {};
 
-	//Ç°¼şÖÁÉÙÓĞ1¸ö£¬Ç°¼ş¼Óºó¼şÈç¹û´óÓÚµ±Ç°ÊÂÎñ£¬ÔòÎŞ·¨Éú³É
+	//å‰ä»¶è‡³å°‘æœ‰1ä¸ªï¼Œå‰ä»¶åŠ åä»¶å¦‚æœå¤§äºå½“å‰äº‹åŠ¡ï¼Œåˆ™æ— æ³•ç”Ÿæˆ
 	if (consequent_num + 1 > itemLength) return;
 
 	for (auto consequent : consequentSet) {
@@ -254,7 +256,7 @@ void JoinBase::_generateRuleByColocation(const ColocationType& colocation,
 			consequentTempSet.push_back(consequent);
 		}
 		//else {
-		//    //Èç¹ûbcd=>aÖÃĞÅ¶È²»Âú×ã£¬Ôò¼ôÖ¦£»¼´´Óºó¼şÏî¼¯ÖĞÉ¾³ı¸ÃÔªËØ
+		//    //å¦‚æœbcd=>aç½®ä¿¡åº¦ä¸æ»¡è¶³ï¼Œåˆ™å‰ªæï¼›å³ä»åä»¶é¡¹é›†ä¸­åˆ é™¤è¯¥å…ƒç´ 
 		//    it = consequentSet.erase(it);
 		//}
 	}
@@ -265,17 +267,109 @@ void JoinBase::_generateRuleByColocation(const ColocationType& colocation,
 	}
 }
 
+/*vector<Rule> JoinBase::_generateRules() {
+	vector<Rule> ans; 
+	int k1 = 1;
+	while (_prevalentColocation.count(k1) && !_prevalentColocation[k1].empty()) {
+		int k2 = 1;
+		// Don't generate R_1
+		if (k1 == 1 && k2 == 1) {
+			++k2;
+		}
+
+		while (_prevalentColocation.count(k2) && !_prevalentColocation[k2].empty()) {
+			for (auto it1 = _prevalentColocation[k1].begin(); it1 != _prevalentColocation[k1].end(); ++it1) {
+				const ColocationType& colocation1 = (*it1).first;
+				for (auto it2 = _prevalentColocation[k2].begin(); it2 != _prevalentColocation[k2].end(); ++it2) {
+					const ColocationType& colocation2 = (*it2).first;
+
+					// Colocation patterns are sorted, so use two pointers to merge them.
+					ColocationType unionColocation;
+					set_union(colocation1.begin(), colocation1.end(),
+						colocation2.begin(), colocation2.end(),
+						std::back_inserter(unionColocation));
+
+					// colocation1 âˆª colocation2 = âˆ…
+					if (unionColocation.size() != colocation1.size() + colocation2.size()) continue;
+
+					unsigned int k = unionColocation.size();
+					if (_prevalentColocation.count(k) && _prevalentColocation[k].count(unionColocation)) {
+						// The new colocation pattern is prevalent.
+						unsigned int sizeOfNew = _prevalentColocation[k][unionColocation].size();
+						unsigned int sizeOfColocation1 = _prevalentColocation[k1][colocation1].size();
+
+						std::map<std::vector<InstanceIdType>, bool> bitmap;
+						auto& tableInstance = _prevalentColocation[k1][colocation1];
+						for (auto& rowInstance : tableInstance) {
+							std::vector<InstanceIdType> ids; // Collect instance ids.
+							for (auto& instanceId : rowInstance) {
+								ids.push_back(instanceId);
+							}
+							bitmap[ids] = false;
+						}
+
+
+						int p = 0;
+						std::vector<unsigned int> featureIdx; // Collect feature id in vector, not the same as instance ids.
+						for (unsigned int i = 0; i < unionColocation.size(); ++i) {
+							if (unionColocation[i] == colocation1[p]) {
+								featureIdx.push_back(i);
+								p++;
+							}
+						}
+
+						auto& cliquesUnion = _prevalentColocation[k][unionColocation];
+						for (auto& clique : cliquesUnion) {
+							std::vector<InstanceIdType> ids; // instance ids.
+							for (auto idx : featureIdx) {
+								ids.push_back(clique[idx]);
+							}
+							bitmap[ids] = true;
+						}
+
+						int trueCnt = 0;
+						for (auto bit : bitmap) {
+							if (bit.second) {
+								trueCnt++;
+							}
+						}
+						double conf = trueCnt * 1.0 / bitmap.size();
+						if (conf > _min_conf) {
+							
+							ans.push_back(move(Rule{ colocation1, colocation2, conf }));
+						}
+
+
+					}
+				}
+			}
+			k2++;
+		}
+		k1++;
+	}
+
+	return ans;
+}*/
+
 vector<Rule> JoinBase::_generateRules() {
 	vector<ColocationType> consequentSet;
 	vector<Rule> ans;
 
-	//TODO:L[1]´æ´¢µÄÊÇ¶şÏî¼¯
+	/*for (int k = 1; k <= _numOfColocations.size(); k++) {
+		for (auto& _numOfColocation : _numOfColocations[k]) {
+			auto colocations = _numOfColocation.first;
+			for (auto feature : colocations) {
+				cout << feature << " ";
+			}
+			cout << endl;
+		}
+	}*/
 
-	for (int k = 1; k < _numOfColocations.size(); k++) {
-		for (auto& numOfColocation : _numOfColocations[k]) {
+	for (int k = 1; k <= _numOfColocations.size(); k++) {
+		for (auto& _numOfColocation : _numOfColocations[k]) {
 			consequentSet = {};
-			auto colocations = numOfColocation.first;
-			//¹æÔòµÄ1-Ïîºó¼ş
+			auto colocations = _numOfColocation.first;
+			//è§„åˆ™çš„1-é¡¹åä»¶
 			for (auto& colocation : colocations) {
 				consequentSet.push_back({ colocation });
 			}
@@ -289,43 +383,42 @@ vector<Rule> JoinBase::_generateRules() {
 void visualization(vector<Rule> rules) {
 	ColocationType antecedent;
 	ColocationType consequent;
-	ofstream ofs("output.txt");
+	//ofstream ofs("output.txt");
 
 
 	for (auto& rule : rules)
 	{
 		antecedent = rule.antecedent;
 		for (auto& item : antecedent) {
-			ofs << item;
+			cout << item;
 			int size = antecedent.size() - 1;
 			if (item == antecedent[size])
-				ofs << " ";
+				cout << " ";
 			else
-				ofs << "^";
+				cout << "^";
 		}
 
-		ofs << " => ";
+		cout << " => ";
 
 		consequent = rule.consequent;
 		for (auto& item : consequent) {
-			ofs << item;
+			cout << item;
 			int size = consequent.size() - 1;
 			if (item == consequent[size])
-				ofs << " ";
+				cout << " ";
 			else
-				ofs << "^";
+				cout << "^";
 		}
 
-		ofs << "   confidence  : " << rule.conf;
+		cout << "   confidence  : " << rule.conf;
 
-		ofs << endl;
+		cout << endl;
 	}
 }
 
 void JoinBase::execute() {
-	int k = 1;
-
-	while (_prevalentColocation.count(k) && !_prevalentColocation[k].empty()) {
+	int k = 2;
+	while (_prevalentColocation.count(k - 1) && !_prevalentColocation[k - 1].empty()) {
 		vector<ColocationType> candidates = _generateCandidateColocations_k(k);
 		if (_fmul) {
 			MultiResolution multiResolution(_true_instances,_min_prev, _cellSize, numOfInstances);
@@ -335,6 +428,7 @@ void JoinBase::execute() {
 		_selectPrevalentColocations(candidatePackages, k);
 		k++;
 	}
+
 	vector<Rule> rules = _generateRules();
 
 	visualization(rules);

@@ -1,7 +1,11 @@
 #include "Common.h"
 
 bool Common::isRReachable(LocationType& loc1, LocationType& loc2) {
-    return pow(loc1.first - loc2.first, 2) + pow(loc1.second - loc2.second, 2) < 1;
+    /*bool flag =  pow(loc1.first - loc2.first, 2) + pow(loc1.second - loc2.second, 2) < 1;
+    if (flag) {
+        cout << "666" << endl;
+    }*/
+    return pow(loc1.first - loc2.first, 2) + pow(loc1.second - loc2.second, 2) <= 4;
 }
 
 bool Common::multi_rel(CellPositionType& p1, CellPositionType& p2) {
