@@ -210,7 +210,187 @@ void  JoinBase::_selectPrevalentColocations(ColocationPackage & candidatePackage
 	}
 }
 
-ColocationSetType apriori_gen(ColocationSetType& consequentSet) {
+bool issubset(ColocationType colocation_sub, ColocationType  colocation) {
+	ColocationType unionColocation;
+	set_union(colocation.begin(), colocation.end(),colocation_sub.begin(), colocation_sub.end(),
+		back_inserter(unionColocation));
+
+	return !empty(unionColocation);
+}
+
+vector<unsigned int>  getFeatureIdx(const ColocationType &colocation,const ColocationType &colocationSub) {
+	vector<unsigned int> featureIdx;
+
+	int pos = 0;
+	//A B ;A B C 
+	for (unsigned int i = 0; i < colocationSub.size(); i++) {
+		if (colocation[i] == colocationSub[pos]) {
+			featureIdx.push_back(i);
+			pos++;
+		}
+	}
+
+	return featureIdx;
+}
+
+unsigned int getProjectNumOfColocation(TableInstanceType tableInstance, vector<unsigned int> featureIdx) {
+	unsigned int projectNumOfColocation;
+
+	set<RowInstanceType> rowInstanceProjectSet;
+	//A:0
+	for (auto rowInstance : tableInstance) {
+		RowInstanceType rowInstanceIds;
+		//得到投影的模式的行实例个数
+		for (unsigned int i = 0; i < featureIdx.size(); i++) {
+			for (unsigned int j = 0; j < rowInstance.size(); j++) {
+				if (j == featureIdx[i]) {
+					rowInstanceIds.push_back(rowInstance[j]);
+				}
+			}
+		}
+		if (!empty(rowInstanceIds)) {
+			//去重
+			if (rowInstanceProjectSet.find(rowInstanceIds) == rowInstanceProjectSet.end()) {
+				rowInstanceProjectSet.insert(rowInstanceIds);
+			}
+		}
+	}
+
+	return rowInstanceProjectSet.size();
+}
+
+unsigned int  JoinBase::getRowInstancesOfColocationSub(const ColocationType& colocationSub) {
+	unsigned int rowInstancesOfColocationSub;
+	
+	int k = colocationSub.size();
+	return _prevalentColocation[k][colocationSub].size();
+}
+
+vector<Rule> JoinBase::_generateRules() {
+	vector<Rule> rules;
+
+	ColocationSetType colocationSubSet;
+	ColocationPackage colocationOnePackages = _prevalentColocation[1];
+	for (auto colocationPackage : colocationOnePackages) {
+		ColocationType colocation = colocationPackage.first;
+		colocationSubSet.push_back(colocation);
+	}
+
+	//a =>bc abc(投影bc)/bc
+	int length = _prevalentColocation.size();
+	for (unsigned int k = 2; k <= length;k++) {
+		ColocationPackage colocationPackages = _prevalentColocation[k];
+	
+		//abc
+		for (auto colocationPackage : colocationPackages) {
+			ColocationType colocation = colocationPackage.first;
+			TableInstanceType tableInstance = colocationPackage.second;
+
+			for (auto colocationSub : colocationSubSet) {
+				if (!issubset(colocationSub, colocation)) {
+					continue;
+				}
+				//abc=>colocation  bc=>colocationSub
+				//找出colocationSub在colocation中的feature的下标（按照字典序排序）
+				//例如：colocation:A B C ;colocationSub:A C,则是 0,2
+				vector<unsigned int> featureIdx = getFeatureIdx(colocation, colocationSub);
+				
+				//获得分子：abc在ab投影下的行实例数
+				unsigned int projectNumOfColocation = getProjectNumOfColocation(tableInstance, featureIdx);
+				
+				//分母
+				unsigned int rowInstancesOfColocationSub = getRowInstancesOfColocationSub(colocationSub);
+				
+				double conf = projectNumOfColocation * 1.0 / rowInstancesOfColocationSub;
+				if (conf >= _min_conf) {
+					ColocationType antecedent;
+					//abc - bc = a, a =>bc
+					set_difference(colocation.begin(), colocation.end(), colocationSub.begin(), colocationSub.end(), back_inserter(antecedent));
+					rules.push_back(move(Rule{ antecedent, colocationSub, conf }));
+				}
+			}
+
+			//这一轮得到的低级放入下一轮 作为 colocationSubSet
+			colocationSubSet.push_back(colocation);
+		}
+	}
+	
+	return rules;
+}
+
+void visualization(vector<Rule> rules) {
+	ColocationType antecedent;
+	ColocationType consequent;
+	//ofstream ofs("output.txt");
+
+	for (auto& rule : rules)
+	{
+		antecedent = rule.antecedent;
+		for (auto& item : antecedent) {
+			cout << item;
+			int size = antecedent.size() - 1;
+			if (item == antecedent[size])
+				cout << " ";
+			else
+				cout << "^";
+		}
+
+		cout << " => ";
+
+		consequent = rule.consequent;
+		for (auto& item : consequent) {
+			cout << item;
+			int size = consequent.size() - 1;
+			if (item == consequent[size])
+				cout << " ";
+			else
+				cout << "^";
+		}
+
+		cout << "   confidence  : " << rule.conf;
+
+		cout << endl;
+	}
+}
+
+void JoinBase::execute() {
+	int k = 2;
+	while (_prevalentColocation.count(k - 1) && !_prevalentColocation[k - 1].empty()) {
+		vector<ColocationType> candidates = _generateCandidateColocations_k(k);
+		if (_fmul) {
+			MultiResolution multiResolution(_true_instances,_min_prev, _cellSize, numOfInstances);
+			multiResolution.multiResolutionPruning(candidates, k);
+		}
+		ColocationPackage candidatePackages = _generateTableInstances(candidates, k);
+		_selectPrevalentColocations(candidatePackages, k);
+		k++;
+	}
+
+	vector<Rule> rules = _generateRules();	
+
+	visualization(rules);
+}
+
+/*vector<Rule> JoinBase::_generateRules() {
+	vector<ColocationType> consequentSet;
+	vector<Rule> ans;
+
+	for (int k = 1; k <= _numOfColocations.size(); k++) {
+		for (auto& _numOfColocation : _numOfColocations[k]) {
+			consequentSet = {};
+			auto colocations = _numOfColocation.first;
+			//规则的1-项后件
+			for (auto& colocation : colocations) {
+				consequentSet.push_back({ colocation });
+			}
+			_generateRuleByColocation(colocations, consequentSet, ans, 1, k, k);
+		}
+	}
+
+	return ans;
+}*/
+
+/*ColocationSetType apriori_gen(ColocationSetType& consequentSet) {
 	vector<FeatureType> combItem;
 	set<ColocationType> tmpSet;
 	vector<ColocationType> consequentNewSet;
@@ -265,171 +445,4 @@ void JoinBase::_generateRuleByColocation(const ColocationType& colocation,
 		consequentNewSet = apriori_gen(consequentTempSet);
 		_generateRuleByColocation(colocation, consequentNewSet, ans, consequent_num + 1, i, itemLength);
 	}
-}
-
-/*vector<Rule> JoinBase::_generateRules() {
-	vector<Rule> ans; 
-	int k1 = 1;
-	while (_prevalentColocation.count(k1) && !_prevalentColocation[k1].empty()) {
-		int k2 = 1;
-		// Don't generate R_1
-		if (k1 == 1 && k2 == 1) {
-			++k2;
-		}
-
-		while (_prevalentColocation.count(k2) && !_prevalentColocation[k2].empty()) {
-			for (auto it1 = _prevalentColocation[k1].begin(); it1 != _prevalentColocation[k1].end(); ++it1) {
-				const ColocationType& colocation1 = (*it1).first;
-				for (auto it2 = _prevalentColocation[k2].begin(); it2 != _prevalentColocation[k2].end(); ++it2) {
-					const ColocationType& colocation2 = (*it2).first;
-
-					// Colocation patterns are sorted, so use two pointers to merge them.
-					ColocationType unionColocation;
-					set_union(colocation1.begin(), colocation1.end(),
-						colocation2.begin(), colocation2.end(),
-						std::back_inserter(unionColocation));
-
-					// colocation1 ∪ colocation2 = ∅
-					if (unionColocation.size() != colocation1.size() + colocation2.size()) continue;
-
-					unsigned int k = unionColocation.size();
-					if (_prevalentColocation.count(k) && _prevalentColocation[k].count(unionColocation)) {
-						// The new colocation pattern is prevalent.
-						unsigned int sizeOfNew = _prevalentColocation[k][unionColocation].size();
-						unsigned int sizeOfColocation1 = _prevalentColocation[k1][colocation1].size();
-
-						std::map<std::vector<InstanceIdType>, bool> bitmap;
-						auto& tableInstance = _prevalentColocation[k1][colocation1];
-						for (auto& rowInstance : tableInstance) {
-							std::vector<InstanceIdType> ids; // Collect instance ids.
-							for (auto& instanceId : rowInstance) {
-								ids.push_back(instanceId);
-							}
-							bitmap[ids] = false;
-						}
-
-
-						int p = 0;
-						std::vector<unsigned int> featureIdx; // Collect feature id in vector, not the same as instance ids.
-						for (unsigned int i = 0; i < unionColocation.size(); ++i) {
-							if (unionColocation[i] == colocation1[p]) {
-								featureIdx.push_back(i);
-								p++;
-							}
-						}
-
-						auto& cliquesUnion = _prevalentColocation[k][unionColocation];
-						for (auto& clique : cliquesUnion) {
-							std::vector<InstanceIdType> ids; // instance ids.
-							for (auto idx : featureIdx) {
-								ids.push_back(clique[idx]);
-							}
-							bitmap[ids] = true;
-						}
-
-						int trueCnt = 0;
-						for (auto bit : bitmap) {
-							if (bit.second) {
-								trueCnt++;
-							}
-						}
-						double conf = trueCnt * 1.0 / bitmap.size();
-						if (conf > _min_conf) {
-							
-							ans.push_back(move(Rule{ colocation1, colocation2, conf }));
-						}
-
-
-					}
-				}
-			}
-			k2++;
-		}
-		k1++;
-	}
-
-	return ans;
 }*/
-
-vector<Rule> JoinBase::_generateRules() {
-	vector<ColocationType> consequentSet;
-	vector<Rule> ans;
-
-	/*for (int k = 1; k <= _numOfColocations.size(); k++) {
-		for (auto& _numOfColocation : _numOfColocations[k]) {
-			auto colocations = _numOfColocation.first;
-			for (auto feature : colocations) {
-				cout << feature << " ";
-			}
-			cout << endl;
-		}
-	}*/
-
-	for (int k = 1; k <= _numOfColocations.size(); k++) {
-		for (auto& _numOfColocation : _numOfColocations[k]) {
-			consequentSet = {};
-			auto colocations = _numOfColocation.first;
-			//规则的1-项后件
-			for (auto& colocation : colocations) {
-				consequentSet.push_back({ colocation });
-			}
-			_generateRuleByColocation(colocations, consequentSet, ans, 1, k, k);
-		}
-	}
-
-	return ans;
-}
-
-void visualization(vector<Rule> rules) {
-	ColocationType antecedent;
-	ColocationType consequent;
-	//ofstream ofs("output.txt");
-
-
-	for (auto& rule : rules)
-	{
-		antecedent = rule.antecedent;
-		for (auto& item : antecedent) {
-			cout << item;
-			int size = antecedent.size() - 1;
-			if (item == antecedent[size])
-				cout << " ";
-			else
-				cout << "^";
-		}
-
-		cout << " => ";
-
-		consequent = rule.consequent;
-		for (auto& item : consequent) {
-			cout << item;
-			int size = consequent.size() - 1;
-			if (item == consequent[size])
-				cout << " ";
-			else
-				cout << "^";
-		}
-
-		cout << "   confidence  : " << rule.conf;
-
-		cout << endl;
-	}
-}
-
-void JoinBase::execute() {
-	int k = 2;
-	while (_prevalentColocation.count(k - 1) && !_prevalentColocation[k - 1].empty()) {
-		vector<ColocationType> candidates = _generateCandidateColocations_k(k);
-		if (_fmul) {
-			MultiResolution multiResolution(_true_instances,_min_prev, _cellSize, numOfInstances);
-			multiResolution.multiResolutionPruning(candidates, k);
-		}
-		ColocationPackage candidatePackages = _generateTableInstances(candidates, k);
-		_selectPrevalentColocations(candidatePackages, k);
-		k++;
-	}
-
-	vector<Rule> rules = _generateRules();
-
-	visualization(rules);
-}

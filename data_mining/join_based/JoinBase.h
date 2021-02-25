@@ -22,7 +22,6 @@ public:
 	);
 
 	void execute();
-	/*Common* common;*/
 
 private:
 	double _min_prev;
@@ -49,5 +48,7 @@ private:
 
 	vector<Rule> _generateRules();
 
-	void _generateRuleByColocation(const ColocationType& colocations,ColocationSetType& consequentSet,vector<Rule>& ans,int consequent_num,int i,int itemLength);
+	//void _generateRuleByColocation(const ColocationType& colocations,ColocationSetType& consequentSet,vector<Rule>& ans,int consequent_num,int i,int itemLength);
+
+	unsigned int  getRowInstancesOfColocationSub(const ColocationType& colocationSub);
 };  
