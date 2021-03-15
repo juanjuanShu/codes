@@ -2,9 +2,10 @@
 #include "Common.h"
 #include <set>
 
-MultiResolution::MultiResolution(vector<InstanceType>& instances, double min_prev, double cellSize, map<FeatureType, unsigned int> numOfInstances)
+MultiResolution::MultiResolution(vector<InstanceType>& instances, double min_prev, double cellSize,double distance, map<FeatureType, unsigned int> numOfInstances)
 :_min_prev(min_prev),
 _cellSize(cellSize),
+_distance(distance),
 _numOfInstances(numOfInstances){
 	for (auto it = instances.begin(); it != instances.end(); it++) {
 		auto instanceId = get<InstanceIdType>(*it);
@@ -68,8 +69,8 @@ MultiResolution_ColocationPackage MultiResolution::_generateTableInstances(Coloc
 		ColocationType candidate2(candidate.begin(), candidate.end() - 2);
 		candidate2.push_back(candidate.back());
 
-		MultiResolution_TableInstanceType  tableInstance1 = _tableInstances[k][candidate1];
-		MultiResolution_TableInstanceType  tableInstance2 = _tableInstances[k][candidate2];
+		MultiResolution_TableInstanceType  tableInstance1 = _tableInstances[k - 1][candidate1];
+		MultiResolution_TableInstanceType  tableInstance2 = _tableInstances[k - 1][candidate2];
 
 		for (auto it1 = tableInstance1.begin(); it1 != tableInstance1.end(); it1++) {
 			MultiResolution_RowInstanceType& rowInstance1 = *it1;
@@ -77,14 +78,14 @@ MultiResolution_ColocationPackage MultiResolution::_generateTableInstances(Coloc
 				MultiResolution_RowInstanceType& rowInstance2 = *it2;
 
 				bool canMerge = true;
-				for (int idx = 0; idx < k - 1; idx++) {
+				/*for (int idx = 0; idx < k - 1; idx++) {
 					if (rowInstance1[idx] != rowInstance2[idx]) {
 						canMerge = false;
 						break;
 					}
-				}
+				}*/
 
-				Common* a = new Common();
+				Common* a = new Common(_distance, _cellSize);
 				if (canMerge) {
 					CellPositionType& cell1 = rowInstance1.back(), & cell2 = rowInstance2.back();
 					if (a->multi_rel(cell1, cell2)) {

@@ -22,3 +22,10 @@ using CellPositionType = pair<int,int>;
 using MultiResolution_RowInstanceType = vector<CellPositionType>;
 using MultiResolution_TableInstanceType = vector<MultiResolution_RowInstanceType>;
 using MultiResolution_ColocationPackage = map<ColocationType, MultiResolution_TableInstanceType>;
+
+//struct Rule {
+//	ColocationType antecedent;
+//	ColocationType consequent;
+//	double conf;
+//};
+//using RuleType = set<Rule>;

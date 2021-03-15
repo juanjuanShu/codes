@@ -9,6 +9,16 @@ struct Rule {
 	ColocationType antecedent;
 	ColocationType consequent;
 	double conf;
+
+	friend  bool operator < (struct Rule const&a, struct Rule const &b)
+	{
+		if (a.antecedent == b.antecedent) {
+			return a.consequent < b.consequent;
+		}
+		else {
+			return a.antecedent < b.antecedent;
+		}
+	}
 };
 
 class JoinBase {
@@ -17,15 +27,17 @@ public:
 		vector<InstanceType>& instances,
 		double min_prev,
 		double min_conf,
+		double distance,
 		bool fmul = true,
 		double cellSize = 1
 	);
 
-	void execute();
+	set<Rule>  execute();
 
 private:
 	double _min_prev;
 	double _min_conf;
+	double _distance;
 	bool _fmul;
 	double _cellSize;
 	map<FeatureType, map<InstanceIdType, LocationType>> _instances;
@@ -33,8 +45,7 @@ private:
 	map<unsigned int,map<ColocationType, unsigned int>> _numOfColocations;
 	map<unsigned int, ColocationPackage> _prevalentColocation;
 	vector<InstanceType> _true_instances;
-
-	void _generateCandidateColocations(int k);
+	set<Rule> _rules;
 
 	vector<ColocationType> _generateCandidateColocations_2();
 
@@ -46,9 +57,7 @@ private:
 
 	bool  _isSubsetPrevalent(ColocationType& candidates, int k);
 
-	vector<Rule> _generateRules();
-
-	//void _generateRuleByColocation(const ColocationType& colocations,ColocationSetType& consequentSet,vector<Rule>& ans,int consequent_num,int i,int itemLength);
+	void _generateRules();
 
 	unsigned int  getRowInstancesOfColocationSub(const ColocationType& colocationSub);
 };  
