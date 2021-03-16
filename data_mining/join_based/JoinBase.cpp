@@ -212,60 +212,52 @@ void  JoinBase::_selectPrevalentColocations(ColocationPackage & candidatePackage
 	}
 }
 
-bool issubset(ColocationType colocation_sub, ColocationType  colocation) {
-	ColocationType unionColocation;
-	set_union(colocation.begin(), colocation.end(),colocation_sub.begin(), colocation_sub.end(),
-		back_inserter(unionColocation));
+//判断一个集合是另一个集合的子集
+bool issubset(const ColocationType &colocation_sub, const ColocationType &colocation) {
+	set<FeatureType> sub_set(colocation_sub.begin(),colocation_sub.end());
+	set<FeatureType> colocatioin_set(colocation.begin(), colocation.end());
+	for (auto& sub_item : sub_set) {
+		if (colocatioin_set.find(sub_item) == colocatioin_set.end()) {
+			return false;
+		}
+	}
 
-	return !empty(unionColocation);
+	return true;
 }
 
-vector<unsigned int>  getFeatureIdx(const ColocationType &colocation,const ColocationType &colocationSub) {
+vector<unsigned int>  getFeatureIdx(const ColocationType &colocation,const ColocationType & antecedent) {
 	vector<unsigned int> featureIdx;
 
 	int pos = 0;
 	//A B ;A B C 
-	for (unsigned int i = 0; i < colocationSub.size(); i++) {
-		if (colocation[i] == colocationSub[pos]) {
+	for (unsigned int i = 0; i < colocation.size(); i++) {
+		if (colocation[i] == antecedent[pos]) {
 			featureIdx.push_back(i);
 			pos++;
 		}
+		if (pos == antecedent.size())  break;
 	}
 
 	return featureIdx;
 }
 
 unsigned int getProjectNumOfColocation(TableInstanceType tableInstance, vector<unsigned int> featureIdx) {
-	unsigned int projectNumOfColocation;
-
 	set<RowInstanceType> rowInstanceProjectSet;
-	//A:0
+
 	for (auto rowInstance : tableInstance) {
 		RowInstanceType rowInstanceIds;
 		//得到投影的模式的行实例个数
 		for (unsigned int i = 0; i < featureIdx.size(); i++) {
-			for (unsigned int j = 0; j < rowInstance.size(); j++) {
-				if (j == featureIdx[i]) {
-					rowInstanceIds.push_back(rowInstance[j]);
-				}
-			}
+			rowInstanceIds.push_back(rowInstance[featureIdx[i]]);
 		}
-		if (!empty(rowInstanceIds)) {
-			//去重
-			if (rowInstanceProjectSet.find(rowInstanceIds) == rowInstanceProjectSet.end()) {
-				rowInstanceProjectSet.insert(rowInstanceIds);
-			}
-		}
+		rowInstanceProjectSet.insert(rowInstanceIds);
 	}
 
 	return rowInstanceProjectSet.size();
 }
 
-unsigned int  JoinBase::getRowInstancesOfColocationSub(const ColocationType& colocationSub) {
-	unsigned int rowInstancesOfColocationSub;
-	
-	int k = colocationSub.size();
-	return _prevalentColocation[k][colocationSub].size();
+unsigned int  JoinBase::getRowInstancesOfColocationSub(const ColocationType& antecedent) {
+	return _prevalentColocation[antecedent.size()][antecedent].size();
 }
 
 void JoinBase::_generateRules() {
@@ -291,22 +283,28 @@ void JoinBase::_generateRules() {
 				if (!issubset(colocationSub, colocation)) {
 					continue;
 				}
+
+				ColocationType antecedent;
+				//abc - bc = a, a =>bc  
+				//条件概率是  abc中a去重 / bc
+				set_difference(colocation.begin(), colocation.end(), 
+					colocationSub.begin(), colocationSub.end(), 
+					back_inserter(antecedent));
+
 				//abc=>colocation  bc=>colocationSub
 				//找出colocationSub在colocation中的feature的下标（按照字典序排序）
 				//例如：colocation:A B C ;colocationSub:A C,则是 0,2
-				vector<unsigned int> featureIdx = getFeatureIdx(colocation, colocationSub);
+				vector<unsigned int> featureIdx = getFeatureIdx(colocation, antecedent);
 				
 				//获得分子：abc在ab投影下的行实例数
 				unsigned int projectNumOfColocation = getProjectNumOfColocation(tableInstance, featureIdx);
 				
 				//分母
-				unsigned int rowInstancesOfColocationSub = getRowInstancesOfColocationSub(colocationSub);
+				unsigned int antecedentTableInstanceSize = getRowInstancesOfColocationSub(antecedent);
 				
-				double conf = projectNumOfColocation * 1.0 / rowInstancesOfColocationSub;
+				double conf = projectNumOfColocation * 1.0 / antecedentTableInstanceSize;
 				if (conf >= _min_conf) {
-					ColocationType antecedent;
-					//abc - bc = a, a =>bc
-					set_difference(colocation.begin(), colocation.end(), colocationSub.begin(), colocationSub.end(), back_inserter(antecedent));
+					
 					_rules.insert(move(Rule{ antecedent, colocationSub, conf }));
 				}
 			}
