@@ -225,7 +225,10 @@ bool issubset(const ColocationType &colocation_sub, const ColocationType &coloca
 	return true;
 }
 
-vector<unsigned int>  getFeatureIdx(const ColocationType &colocation,const ColocationType & antecedent) {
+vector<unsigned int>  getFeatureIdx
+
+
+(const ColocationType &colocation,const ColocationType & antecedent) {
 	vector<unsigned int> featureIdx;
 
 	int pos = 0;
@@ -318,10 +321,12 @@ void JoinBase::_generateRules() {
 
 set<Rule>  JoinBase::execute() {
 	int k = 2;
+
 	while (_prevalentColocation.count(k - 1) && !_prevalentColocation[k - 1].empty()) {
 		vector<ColocationType> candidates = _generateCandidateColocations_k(k);
 		if (_fmul) {
-			MultiResolution multiResolution(_true_instances, _min_prev, _cellSize, _distance, numOfInstances);
+			//用static,只会初始化一次
+			static MultiResolution multiResolution(_true_instances, _min_prev, _cellSize, _distance, numOfInstances);
 			multiResolution.multiResolutionPruning(candidates, k);
 		}
 		ColocationPackage candidatePackages = _generateTableInstances(candidates, k);

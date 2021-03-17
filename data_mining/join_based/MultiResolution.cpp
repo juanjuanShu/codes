@@ -26,16 +26,16 @@ ColocationSetType MultiResolution::_selectPrevalentColocations(MultiResolution_C
 
 	if (!empty(candidatePackages)) {
 		for (auto candidatePackage : candidatePackages) {
-			ColocationType colocations = candidatePackage.first;
+			ColocationType candidate = candidatePackage.first;
 			MultiResolution_TableInstanceType tableInstances = candidatePackage.second;
-			set<CellPositionType> cellPositionSet;
-
-			//以每个candidatePackage开始统计
+			
+			//判断每个candidate参与率是否大于等于_min_prev
 			bool isPrevalent = true;
-			//以每个特征开始统计
-			for (unsigned int i = 0; i < colocations.size(); i++) {
+			//每个feature开始统计
+			for (unsigned int i = 0; i < candidate.size(); i++) {
 				int count = 0;
-				FeatureType feature = colocations[i];
+				FeatureType feature = candidate[i];
+				set<CellPositionType> cellPositionSet;// Record whether the instances in the cell are counted.
 				for (auto& rowInstance : tableInstances) {
 					CellPositionType cellPosition = rowInstance[i];
 					//如果找不到，那么插入该元素，并统计一次表格中的元素
@@ -45,15 +45,16 @@ ColocationSetType MultiResolution::_selectPrevalentColocations(MultiResolution_C
 					}
 				}
 
-				if (count * 1.0 / _numOfInstances[feature] < _min_prev) {
+				double conf = count * 1.0 / _numOfInstances[feature];
+				if (conf < _min_prev) {
 					isPrevalent = false;
 					break;
 				}
 			}
 
 			if (isPrevalent) {
-				_tableInstances[k][colocations] = tableInstances;
-				prevalence.push_back(colocations);
+				_tableInstances[k][candidate] = tableInstances;
+				prevalence.push_back(candidate);
 			}
 		}
 	}
@@ -78,12 +79,12 @@ MultiResolution_ColocationPackage MultiResolution::_generateTableInstances(Coloc
 				MultiResolution_RowInstanceType& rowInstance2 = *it2;
 
 				bool canMerge = true;
-				/*for (int idx = 0; idx < k - 1; idx++) {
+				for (int idx = 0; idx < k - 2; idx++) {
 					if (rowInstance1[idx] != rowInstance2[idx]) {
 						canMerge = false;
 						break;
 					}
-				}*/
+				}
 
 				Common* a = new Common(_distance, _cellSize);
 				if (canMerge) {
